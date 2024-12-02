@@ -15,7 +15,7 @@ use oid4vc_manager::{
 use oid4vci::VerifiableCredentialJwt;
 use oid4vp::{
     authorization_request::ClientMetadataParameters,
-    oid4vp::{AuthorizationResponseInput, OID4VP},
+    oid4vp::{AuthorizationResponseInput, PresentationInputType, OID4VP},
     ClaimFormatDesignation, ClaimFormatProperty, PresentationDefinition,
 };
 use serde_json::json;
@@ -176,12 +176,14 @@ async fn test_implicit_flow() {
             .build()
             .unwrap();
 
+    let verifiable_presentation_input = PresentationInputType::Unsigned(verifiable_presentation);
+
     // Generate the authorization_response. It will include both an IdToken and a VpToken.
     let authorization_response: AuthorizationResponse<OID4VP> = provider_manager
         .generate_response(
             &authorization_request,
             AuthorizationResponseInput {
-                verifiable_presentation,
+                verifiable_presentation_input,
                 presentation_submission,
             },
         )

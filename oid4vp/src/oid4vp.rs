@@ -69,25 +69,36 @@ impl Extension for OID4VP {
             .identifier(&subject_syntax_type_string, signing_algorithm)
             .await?;
 
-        let vp_token = VpToken::builder()
-            .iss(subject_identifier.clone())
-            .sub(subject_identifier)
-            .aud(client_id)
-            .nonce(extension_parameters.nonce.to_owned())
-            // TODO: make this configurable.
-            .exp((Utc::now() + Duration::minutes(10)).timestamp())
-            .iat((Utc::now()).timestamp())
-            .verifiable_presentation(user_input.verifiable_presentation.clone())
-            .build()?;
+        let mut jwts = vec![];
+        match &user_input.verifiable_presentation_input {
+            PresentationInputType::Unsigned(verifiable_presentation) => {
+                let vp_token = VpToken::builder()
+                    .iss(subject_identifier.clone())
+                    .sub(subject_identifier.clone())
+                    .aud(client_id)
+                    .nonce(extension_parameters.nonce.to_owned())
+                    // TODO: make this configurable.
+                    .exp((Utc::now() + Duration::minutes(10)).timestamp())
+                    .iat((Utc::now()).timestamp())
+                    .verifiable_presentation(verifiable_presentation.clone())
+                    .build()?;
 
-        let jwt = jwt::encode(
-            subject.clone(),
-            Header::new(signing_algorithm),
-            vp_token,
-            &subject_syntax_type_string,
-        )
-        .await?;
-        Ok(vec![jwt])
+                let jwt = jwt::encode(
+                    subject.clone(),
+                    Header::new(signing_algorithm),
+                    vp_token,
+                    &subject_syntax_type_string,
+                )
+                .await?;
+
+                jwts.push(jwt);
+            }
+            PresentationInputType::Signed(jwt) => {
+                jwts.push(jwt.to_owned());
+            }
+        }
+
+        Ok(jwts)
     }
 
     // TODO: combine this function with `get_relying_party_supported_syntax_types`.
@@ -117,10 +128,16 @@ impl Extension for OID4VP {
             ClientMetadataResource::ClientMetadata { extension, .. } => extension
                 .vp_formats
                 .get(&ClaimFormatDesignation::JwtVcJson)
+                .or_else(|| extension.vp_formats.get(&ClaimFormatDesignation::VcSdJwt))
                 .and_then(|claim_format_property| match claim_format_property {
                     ClaimFormatProperty::Alg(algs) => Some(algs.clone()),
                     // TODO: implement `ProofType`.
                     ClaimFormatProperty::ProofType(_) => None,
+                    ClaimFormatProperty::SdJwt {
+                        sd_jwt_alg_values,
+                        // TODO: implement Key Binding
+                        kb_jwt_alg_values: _kb_jwt_alg_values,
+                    } => Some(sd_jwt_alg_values.clone()),
                 })
                 .ok_or(anyhow::anyhow!("No supported algorithms found.")),
         }
@@ -218,7 +235,14 @@ pub struct AuthorizationResponseParameters {
     pub oid4vp_parameters: Oid4vpParams,
 }
 
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct AuthorizationResponseInput {
-    pub verifiable_presentation: Presentation<Jwt>,
+    pub verifiable_presentation_input: PresentationInputType,
     pub presentation_submission: PresentationSubmission,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+pub enum PresentationInputType {
+    Unsigned(Presentation<Jwt>),
+    Signed(String),
 }
