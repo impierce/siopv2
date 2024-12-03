@@ -52,8 +52,7 @@ pub fn create_sd_jwt_presentation_submission(
     let descriptor_map = presentation_definition
         .input_descriptors()
         .iter()
-        .enumerate()
-        .filter_map(|(_index, input_descriptor)| {
+        .filter_map(|input_descriptor| {
             credentials.iter().find_map(|credential| {
                 evaluate_input(input_descriptor, credential).then_some(InputDescriptorMappingObject {
                     id: input_descriptor.id().clone(),
