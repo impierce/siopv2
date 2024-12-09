@@ -158,25 +158,43 @@ impl<CFC: CredentialFormatCollection + DeserializeOwned> Wallet<CFC> {
             .map_err(|e| e.into())
     }
 
+    // Select supported signing algorithm that matches the Credential Issuer's supported Proof Types.
+    // Supplying the `proof` parameter to the Credential Request is only required when the `proof_types_supported`
+    // parameter is present in the Credential Configuration in the Credential Issuer's metadata. However, if the
+    // `proof_types_supported` is not present, the Wallet will still provide the `proof` signed with its own preferred
+    // signing algorithm. For more information see: https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-13.html#section-7.2-2.2.1
     fn select_signing_algorithm(
         &self,
         credential_configuration: &CredentialConfigurationsSupportedObject,
     ) -> Result<Algorithm> {
-        let credential_issuer_proof_signing_alg_values_supported = &credential_configuration
-            .proof_types_supported
-            .get(&ProofType::Jwt)
-            .ok_or(anyhow::anyhow!(
-                "`jwt` proof type is missing from the `proof_types_supported` parameter"
-            ))?
-            .proof_signing_alg_values_supported;
+        let proof_types_supported = &credential_configuration.proof_types_supported;
 
+        // If the Credential Issuer does not define any supported Proof Types, then the Wallet wil uses its own default signing algorithm.
+        if proof_types_supported.is_empty() {
+            return self
+                .proof_signing_alg_values_supported
+                .first()
+                .ok_or(anyhow::anyhow!("Wallet does not support any signing algorithms"))
+                .cloned();
+        }
+
+        // Extract the actual signing algorithms if the Credential Issuer supports JWT proof types.
+        // TODO: support Proof types other than Jwt.
+        let credential_issuer_proof_signing_alg_values_supported = proof_types_supported
+            .get(&ProofType::Jwt)
+            .map(|proof_type| proof_type.proof_signing_alg_values_supported.clone())
+            .ok_or(anyhow::anyhow!(
+                "The Credential Issuer does not support JWT proof types"
+            ))?;
+
+        // Return the first signin algorithm that matches any of the Credential Issuer's supported signing algorithms.
         self.proof_signing_alg_values_supported
             .iter()
             .find(|supported_algorithm| {
                 credential_issuer_proof_signing_alg_values_supported.contains(supported_algorithm)
             })
             .cloned()
-            .ok_or(anyhow::anyhow!("No supported signing algorithm found."))
+            .ok_or(anyhow::anyhow!("No matching supported signing algorithms found."))
     }
 
     fn select_subject_syntax_type(
@@ -309,5 +327,113 @@ impl<CFC: CredentialFormatCollection + DeserializeOwned> Wallet<CFC> {
             .json()
             .await
             .map_err(|e| e.into())
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+    use crate::proof::KeyProofMetadata;
+    use oid4vc_core::test_utils::TestSubject;
+    use std::{collections::HashMap, sync::Arc};
+
+    #[test]
+    fn select_signing_algorithm_returns_first_supported_signing_algorithm_when_no_proof_types_supported() {
+        // Create a new Wallet.
+        let wallet: Wallet = Wallet::new(
+            Arc::new(TestSubject::default()),
+            vec!["did:test"],
+            vec![Algorithm::EdDSA],
+        )
+        .unwrap();
+
+        let signing_algorithm = wallet
+            // The Credential Issuer does not supply the `proof_types_supported` parameter, so the Wallet will use its own
+            // preferred signing algorithm
+            .select_signing_algorithm(&CredentialConfigurationsSupportedObject::default())
+            .unwrap();
+
+        assert_eq!(signing_algorithm, Algorithm::EdDSA);
+    }
+
+    #[test]
+    fn select_signing_algorithm_returns_error_when_issuers_supported_proof_type_is_not_supported() {
+        // Create a new Wallet.
+        let wallet: Wallet = Wallet::new(
+            Arc::new(TestSubject::default()),
+            vec!["did:test"],
+            vec![Algorithm::EdDSA],
+        )
+        .unwrap();
+
+        let error = wallet
+            .select_signing_algorithm(&CredentialConfigurationsSupportedObject {
+                proof_types_supported: HashMap::from_iter(vec![(
+                    // This Proof Type is not supported in the Wallet (as of now) so the Wallet will return an error.
+                    ProofType::Cwt,
+                    KeyProofMetadata {
+                        proof_signing_alg_values_supported: vec![Algorithm::EdDSA],
+                    },
+                )]),
+                ..Default::default()
+            })
+            .unwrap_err()
+            .to_string();
+
+        assert_eq!(error, "The Credential Issuer does not support JWT proof types");
+    }
+
+    #[test]
+    fn select_signing_algorithm_returns_error_when_it_cannot_find_matching_signing_algorithm() {
+        // Create a new Wallet.
+        let wallet: Wallet = Wallet::new(
+            Arc::new(TestSubject::default()),
+            vec!["did:test"],
+            vec![Algorithm::EdDSA],
+        )
+        .unwrap();
+
+        let error = wallet
+            .select_signing_algorithm(&CredentialConfigurationsSupportedObject {
+                proof_types_supported: HashMap::from_iter(vec![(
+                    ProofType::Jwt,
+                    KeyProofMetadata {
+                        // This proof signing algorithm will not match any of the Wallet's supported signing algorithms.
+                        proof_signing_alg_values_supported: vec![Algorithm::RS256],
+                    },
+                )]),
+                ..Default::default()
+            })
+            .unwrap_err()
+            .to_string();
+
+        assert_eq!(error, "No matching supported signing algorithms found.");
+    }
+
+    #[test]
+    fn select_signing_algorithm_returns_matching_signing_algorithm() {
+        // Create a new Wallet.
+        let wallet: Wallet = Wallet::new(
+            Arc::new(TestSubject::default()),
+            vec!["did:test"],
+            vec![Algorithm::EdDSA],
+        )
+        .unwrap();
+
+        let signing_algorithm = wallet
+            .select_signing_algorithm(&CredentialConfigurationsSupportedObject {
+                proof_types_supported: HashMap::from_iter(vec![(
+                    // This Proof Type is supported by the Wallet
+                    ProofType::Jwt,
+                    KeyProofMetadata {
+                        // This proof signing algorithm will match the Wallet's supported signing algorithms.
+                        proof_signing_alg_values_supported: vec![Algorithm::EdDSA],
+                    },
+                )]),
+                ..Default::default()
+            })
+            .unwrap();
+
+        assert_eq!(signing_algorithm, Algorithm::EdDSA);
     }
 }
