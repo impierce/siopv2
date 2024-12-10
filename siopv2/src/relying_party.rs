@@ -36,13 +36,15 @@ impl RelyingParty {
         authorization_request: &AuthorizationRequest<Object<E>>,
         signing_algorithm: impl TryInto<Algorithm>,
     ) -> Result<String> {
+        let mut header = Header::new(
+            signing_algorithm
+                .try_into()
+                .map_err(|_| anyhow::anyhow!("Invalid signing algorithm."))?,
+        );
+        header.typ = Some("oauth-authz-req+jwt".to_string());
         jwt::encode(
             self.subject.clone(),
-            Header::new(
-                signing_algorithm
-                    .try_into()
-                    .map_err(|_| anyhow::anyhow!("Invalid signing algorithm."))?,
-            ),
+            header,
             authorization_request,
             &self.default_subject_syntax_type.to_string(),
         )
