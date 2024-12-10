@@ -187,7 +187,7 @@ impl<CFC: CredentialFormatCollection + DeserializeOwned> Wallet<CFC> {
                 "The Credential Issuer does not support JWT proof types"
             ))?;
 
-        // Return the first signin algorithm that matches any of the Credential Issuer's supported signing algorithms.
+        // Return the first signing algorithm that matches any of the Credential Issuer's supported signing algorithms.
         self.proof_signing_alg_values_supported
             .iter()
             .find(|supported_algorithm| {
