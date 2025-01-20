@@ -22,6 +22,7 @@ use reqwest_retry::RetryTransientMiddleware;
 use serde::de::DeserializeOwned;
 use std::str::FromStr;
 
+#[derive(Debug)]
 pub struct Wallet<CFC = CredentialFormats<WithParameters>>
 where
     CFC: CredentialFormatCollection,

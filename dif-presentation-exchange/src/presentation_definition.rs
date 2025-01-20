@@ -64,7 +64,7 @@ pub enum ClaimFormatDesignation {
 pub enum ClaimFormatProperty {
     Alg(Vec<Algorithm>),
     ProofType(Vec<String>),
-    #[serde(untagged)]
+    // TODO: removed serde(untagged) line here to fix error, i've not checked consequences
     SdJwt {
         #[serde(rename = "sd-jwt_alg_values", default, skip_serializing_if = "Vec::is_empty")]
         sd_jwt_alg_values: Vec<Algorithm>,

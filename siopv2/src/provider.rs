@@ -16,6 +16,7 @@ use reqwest_retry::{policies::ExponentialBackoff, RetryTransientMiddleware};
 /// A Self-Issued OpenID Provider (SIOP), which is responsible for generating and signing [`IdToken`]'s in response to
 /// [`AuthorizationRequest`]'s from [crate::relying_party::RelyingParty]'s (RPs). The [`Provider`] acts as a trusted intermediary between the RPs and
 /// the user who is trying to authenticate.
+#[derive(Debug)]
 pub struct Provider {
     pub subject: SigningSubject,
     pub supported_subject_syntax_types: Vec<SubjectSyntaxType>,

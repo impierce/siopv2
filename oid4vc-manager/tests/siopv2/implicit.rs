@@ -26,6 +26,7 @@ use wiremock::{
 };
 
 /// A Subject that can sign and verify messages with multiple different DID Methods.
+#[derive(Debug)]
 pub struct MultiDidMethodSubject {
     pub test_subject: TestSubject,
     pub key_subject: KeySubject,
@@ -134,7 +135,7 @@ async fn test_implicit_flow(#[case] did_method: &str) {
         .scope(Scope::from(vec![ScopeValue::OpenId, ScopeValue::Phone]))
         .redirect_uri(format!("{server_url}/redirect_uri").parse::<url::Url>().unwrap())
         .response_mode("direct_post".to_string())
-        .client_metadata(ClientMetadataResource::<ClientMetadataParameters>::ClientMetadata {
+        .client_metadata(ClientMetadataResource::ClientMetadata { // TODO: removed <ClientMetadataParameters>::, not sure of the consequences
             client_name: None,
             logo_uri: None,
             extension: ClientMetadataParameters {

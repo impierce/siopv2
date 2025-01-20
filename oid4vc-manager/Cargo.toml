@@ -31,11 +31,11 @@ serde_with.workspace = true
 tokio.workspace = true
 tower-http = { version = "0.4", features = ["cors"]}
 url.workspace = true
+derivative = "2.2"
 
 [dev-dependencies]
 oid4vc-core = { path = "../oid4vc-core", features = ["test-utils"] }
 
-derivative = "2.2"
 ed25519-dalek = { version = "2.0.0", features = ["rand_core"] }
 lazy_static = "1.4"
 rand = "0.8"

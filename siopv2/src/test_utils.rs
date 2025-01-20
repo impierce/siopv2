@@ -14,7 +14,7 @@ lazy_static! {
     pub static ref TEST_KEYPAIR: SigningKey = SigningKey::generate(&mut OsRng);
 }
 
-#[derive(Derivative)]
+#[derive(Derivative, Debug)]
 #[derivative(Default)]
 pub struct TestSubject {
     #[derivative(Default(value = "did_url::DID::parse(\"did:test:123\").unwrap()"))]

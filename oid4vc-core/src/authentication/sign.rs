@@ -1,7 +1,7 @@
 use anyhow::Result;
 use async_trait::async_trait;
 use jsonwebtoken::Algorithm;
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
 #[async_trait]
 pub trait Sign: Send + Sync {
@@ -12,6 +12,6 @@ pub trait Sign: Send + Sync {
     fn external_signer(&self) -> Option<Arc<dyn ExternalSign>>;
 }
 
-pub trait ExternalSign: Send + Sync {
+pub trait ExternalSign: Send + Sync + Debug{
     fn sign(&self, message: &str) -> Result<Vec<u8>>;
 }
