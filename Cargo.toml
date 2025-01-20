@@ -26,8 +26,9 @@ repository = "https://github.com/impierce/openid4vc"
 [workspace.dependencies]
 chrono = "0.4"
 getset = "0.1"
-identity_core = "1.2.0"
-identity_credential = { version = "1.2.0", default-features = false, features = ["validator", "credential", "presentation"] }
+# TODO: Set identity.rs dependencies back to the official repository once the following PR is merged: https://github.com/iotaledger/identity.rs/pull/1413
+identity_core = { git = "https://github.com/iotaledger/identity.rs", branch = "feat/sd-jwt-vc" }
+identity_credential = { git = "https://github.com/iotaledger/identity.rs", branch = "feat/sd-jwt-vc", default-features = false, features = ["validator", "credential", "presentation", "sd-jwt-vc"] }
 is_empty = "0.2"
 jsonwebtoken = "9.3"
 monostate = "0.1"
